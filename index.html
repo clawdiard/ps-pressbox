@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PressBox — Sports Media Intelligence</title>
+<meta name="description" content="ESPN editorial tracker, trending content, broadcast schedule, and sports media analytics dashboard">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;
+--text:#e8e8f0;--dim:#8888a0;--accent:#c41e3a;--accent2:#ff4d6a;
+--gold:#d4a843;--green:#2ecc71;--blue:#3498db;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Header */
+.header{background:linear-gradient(180deg,#0f0f18 0%,var(--bg) 100%);border-bottom:1px solid var(--border);padding:1.5rem 2rem;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.logo{display:flex;align-items:center;gap:0.75rem}
+.logo-icon{font-size:1.8rem}
+.logo h1{font-size:1.5rem;font-weight:700;letter-spacing:-0.02em}
+.logo h1 span{color:var(--accent)}
+.header-meta{display:flex;align-items:center;gap:1.5rem;font-size:0.85rem;color:var(--dim)}
+.live-dot{width:8px;height:8px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Layout */
+.container{max-width:1400px;margin:0 auto;padding:1.5rem}
+.grid-main{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:900px){.grid-main{grid-template-columns:1fr}}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.card-header{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-header h2{font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem}
+.card-body{padding:1.25rem}
+.card-full{grid-column:1/-1}
+
+/* Ticker */
+.ticker-wrap{background:var(--accent);overflow:hidden;padding:0.5rem 0}
+.ticker{display:flex;animation:scroll 60s linear infinite;white-space:nowrap}
+.ticker-item{padding:0 2rem;font-size:0.85rem;font-weight:600;color:white;display:flex;align-items:center;gap:0.5rem}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* Trending */
+.trending-item{display:flex;align-items:flex-start;gap:1rem;padding:0.875rem 0;border-bottom:1px solid var(--border)}
+.trending-item:last-child{border-bottom:none}
+.trending-rank{font-size:1.5rem;font-weight:800;color:var(--accent);min-width:2rem;text-align:center;line-height:1}
+.trending-content h3{font-size:0.95rem;font-weight:600;margin-bottom:0.25rem}
+.trending-meta{font-size:0.8rem;color:var(--dim);display:flex;gap:0.75rem;align-items:center}
+.trending-tag{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.1rem 0.4rem;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em}
+
+/* Broadcast */
+.broadcast-item{display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border)}
+.broadcast-item:last-child{border-bottom:none}
+.broadcast-time{min-width:5rem;text-align:right;font-variant-numeric:tabular-nums;font-size:0.85rem;color:var(--dim)}
+.broadcast-live{color:var(--accent);font-weight:700}
+.broadcast-sport{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--gold);min-width:4rem}
+.broadcast-title{font-size:0.9rem;font-weight:500}
+.broadcast-channel{font-size:0.75rem;color:var(--dim);margin-left:auto;white-space:nowrap}
+
+/* Ratings Table */
+.ratings-table{width:100%;border-collapse:collapse;font-size:0.85rem}
+.ratings-table th{text-align:left;padding:0.6rem 0.75rem;border-bottom:2px solid var(--border);color:var(--dim);font-weight:500;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.05em}
+.ratings-table td{padding:0.6rem 0.75rem;border-bottom:1px solid var(--border)}
+.ratings-table tr:last-child td{border-bottom:none}
+.rating-bar{background:var(--surface2);border-radius:3px;height:6px;overflow:hidden;min-width:80px}
+.rating-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.change-up{color:var(--green)}
+.change-down{color:var(--accent)}
+
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+@media(max-width:700px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1rem;text-align:center}
+.stat-value{font-size:1.8rem;font-weight:800;letter-spacing:-0.02em}
+.stat-label{font-size:0.75rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.25rem}
+.stat-change{font-size:0.8rem;margin-top:0.25rem}
+
+/* Power Rankings */
+.power-item{display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid var(--border)}
+.power-item:last-child{border-bottom:none}
+.power-rank{font-weight:700;font-size:1.1rem;min-width:1.8rem;text-align:center;color:var(--gold)}
+.power-team{display:flex;align-items:center;gap:0.5rem;flex:1}
+.power-team-dot{width:10px;height:10px;border-radius:50%}
+.power-record{font-size:0.8rem;color:var(--dim);margin-left:auto}
+.power-change{font-size:0.8rem;min-width:2rem;text-align:right}
+
+/* Editorial */
+.editorial-item{padding:0.875rem 0;border-bottom:1px solid var(--border)}
+.editorial-item:last-child{border-bottom:none}
+.editorial-item h3{font-size:0.95rem;font-weight:600;margin-bottom:0.3rem}
+.editorial-byline{font-size:0.8rem;color:var(--dim)}
+.editorial-category{display:inline-block;background:var(--accent);color:white;font-size:0.65rem;padding:0.15rem 0.4rem;border-radius:3px;text-transform:uppercase;letter-spacing:0.05em;margin-right:0.5rem;font-weight:600}
+
+/* Footer */
+.footer{text-align:center;padding:2rem;color:var(--dim);font-size:0.8rem;border-top:1px solid var(--border);margin-top:2rem}
+
+/* Subtle glow */
+.card:hover{border-color:#3a3a50;transition:border-color 0.3s}
+</style>
+</head>
+<body>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+<div class="ticker" id="ticker"></div>
+</div>
+
+<!-- Header -->
+<div class="header">
+<div class="header-inner">
+<div class="logo">
+<span class="logo-icon">📺</span>
+<h1>Press<span>Box</span></h1>
+</div>
+<div class="header-meta">
+<span><span class="live-dot"></span> Live Tracking</span>
+<span id="clock"></span>
+</div>
+</div>
+</div>
+
+<!-- Stats -->
+<div class="container">
+<div class="stat-grid" id="stats"></div>
+</div>
+
+<!-- Main Grid -->
+<div class="container" style="padding-top:0">
+<div class="grid-main">
+
+<!-- Trending Content -->
+<div class="card">
+<div class="card-header"><h2>🔥 Trending on ESPN</h2><span style="font-size:0.8rem;color:var(--dim)">Today</span></div>
+<div class="card-body" id="trending"></div>
+</div>
+
+<!-- Broadcast Schedule -->
+<div class="card">
+<div class="card-header"><h2>📡 Broadcast Schedule</h2><span style="font-size:0.8rem;color:var(--dim)">Feb 24</span></div>
+<div class="card-body" id="broadcasts"></div>
+</div>
+
+<!-- Viewership Ratings -->
+<div class="card card-full">
+<div class="card-header"><h2>📊 Weekly Viewership Ratings</h2><span style="font-size:0.8rem;color:var(--dim)">Week of Feb 17–23</span></div>
+<div class="card-body" style="overflow-x:auto">
+<table class="ratings-table" id="ratings"></table>
+</div>
+</div>
+
+<!-- Power Rankings -->
+<div class="card">
+<div class="card-header"><h2>🏆 NBA Power Rankings</h2><span style="font-size:0.8rem;color:var(--dim)">Week 18</span></div>
+<div class="card-body" id="power-rankings"></div>
+</div>
+
+<!-- Editorial Picks -->
+<div class="card">
+<div class="card-header"><h2>✍️ Editorial Picks</h2><span style="font-size:0.8rem;color:var(--dim)">Editor's Desk</span></div>
+<div class="card-body" id="editorial"></div>
+</div>
+
+<!-- ESPN+ Highlights -->
+<div class="card card-full">
+<div class="card-header"><h2>🎬 ESPN+ Most Watched This Week</h2></div>
+<div class="card-body">
+<div class="stat-grid" id="espn-plus" style="grid-template-columns:repeat(5,1fr)"></div>
+</div>
+</div>
+
+</div>
+</div>
+
+<div class="footer">
+<p>PressBox — Sports Media Intelligence Dashboard</p>
+<p style="margin-top:0.5rem">Data refreshes periodically. All ratings estimates based on publicly reported figures.</p>
+</div>
+
+<script>
+// Clock
+function updateClock(){const d=new Date();document.getElementById('clock').textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
+updateClock();setInterval(updateClock,60000);
+
+// Ticker
+const tickerItems=[
+'🏀 NBA: Celtics 112, Bucks 108 — Tatum 38pts','⚾ MLB Spring Training underway — pitchers & catchers report',
+'🏈 NFL Combine: Top QB prospects impress in drills','⚽ Champions League: Arsenal advances past PSG 3-1 agg.',
+'🏒 NHL: Rangers top Metro Division at trade deadline','🎾 ATP Dubai: Sinner cruises into QF',
+'🏀 NBA All-Star Weekend recap: record 211-186 score','🏈 2026 Draft: Top WR prospects tier breakdown',
+'📺 Super Bowl LX averages 127M viewers — new record','⚽ MLS Season Opener: Inter Miami draws 55K at Chase Stadium',
+'🏀 WNBA: Caitlin Clark named to All-Star roster early','🏒 NHL Trade Deadline: 42 players moved in 48 hours'
+];
+const ticker=document.getElementById('ticker');
+const html=tickerItems.map(t=>`<span class="ticker-item">${t}</span>`).join('');
+ticker.innerHTML=html+html;
+
+// Stats
+const stats=[
+{value:'127M',label:'Super Bowl LX Viewers',change:'+8% YoY',up:true},
+{value:'3.2M',label:'ESPN+ Subscribers (Feb)',change:'+340K MoM',up:true},
+{value:'$7.8B',label:'NBA Rights Deal (Annual)',change:'New Contract',up:true},
+{value:'94.7',label:'ESPN BPI Top Rating',change:'Cleveland',up:true}
+];
+document.getElementById('stats').innerHTML=stats.map(s=>`
+<div class="stat-box">
+<div class="stat-value">${s.value}</div>
+<div class="stat-label">${s.label}</div>
+<div class="stat-change ${s.up?'change-up':'change-down'}">${s.change}</div>
+</div>`).join('');
+
+// Trending
+const trending=[
+{rank:1,title:'Super Bowl LX Shatters Viewership Record — What It Means for ESPN\'s NFL Rights',tags:['NFL','Business'],meta:'Stephen A. Smith • 2.1M views • 4h ago'},
+{rank:2,title:'NBA Trade Deadline Winners & Losers: Complete Breakdown',tags:['NBA','Analysis'],meta:'Zach Lowe • 1.8M views • 6h ago'},
+{rank:3,title:'Champions League Draw: What American Fans Need to Know',tags:['Soccer','UCL'],meta:'Taylor Twellman • 890K views • 3h ago'},
+{rank:4,title:'MLB Spring Training: 10 Breakout Candidates to Watch',tags:['MLB','Preview'],meta:'Jeff Passan • 670K views • 5h ago'},
+{rank:5,title:'NHL Trade Deadline: Inside the 48 Hours That Reshaped the League',tags:['NHL','Trades'],meta:'Emily Kaplan • 540K views • 2h ago'},
+{rank:6,title:'WNBA 2026 Preview: Clark, Reese, and the $75M Question',tags:['WNBA','Business'],meta:'Kevin Pelton • 430K views • 8h ago'}
+];
+document.getElementById('trending').innerHTML=trending.map(t=>`
+<div class="trending-item">
+<div class="trending-rank">${t.rank}</div>
+<div class="trending-content">
+<h3>${t.title}</h3>
+<div class="trending-meta">
+${t.tags.map(tag=>`<span class="trending-tag">${tag}</span>`).join('')}
+<span>${t.meta}</span>
+</div>
+</div>
+</div>`).join('');
+
+// Broadcasts
+const broadcasts=[
+{time:'LIVE',sport:'NBA',title:'Celtics vs. Cavaliers',channel:'ESPN',live:true},
+{time:'LIVE',sport:'NHL',title:'Rangers vs. Penguins',channel:'ESPN+',live:true},
+{time:'7:00 PM',sport:'CBB',title:'Duke vs. North Carolina',channel:'ESPN'},
+{time:'7:30 PM',sport:'NBA',title:'Lakers vs. Warriors',channel:'ABC'},
+{time:'8:00 PM',sport:'Soccer',title:'UCL: Man City vs. Real Madrid',channel:'ESPN+'},
+{time:'9:00 PM',sport:'CBB',title:'Kansas vs. Baylor',channel:'ESPN2'},
+{time:'10:00 PM',sport:'NBA',title:'Suns vs. Nuggets',channel:'ESPN'},
+{time:'10:30 PM',sport:'NHL',title:'Oilers vs. Kings',channel:'ESPN+'}
+];
+document.getElementById('broadcasts').innerHTML=broadcasts.map(b=>`
+<div class="broadcast-item">
+<span class="broadcast-time ${b.live?'broadcast-live':''}">${b.time}</span>
+<span class="broadcast-sport">${b.sport}</span>
+<span class="broadcast-title">${b.title}</span>
+<span class="broadcast-channel">${b.channel}</span>
+</div>`).join('');
+
+// Ratings
+const ratings=[
+{program:'Super Bowl LX Pregame',network:'ESPN/ABC',viewers:'48.2M',rating:'26.1',share:'52%',change:'+12%',up:true,pct:100},
+{program:'NBA Saturday Primetime',network:'ABC',viewers:'5.8M',rating:'3.2',share:'8%',change:'+18%',up:true,pct:55},
+{program:'College GameDay (Basketball)',network:'ESPN',viewers:'2.4M',rating:'1.4',share:'4%',change:'+7%',up:true,pct:38},
+{program:'NHL Wednesday Night',network:'ESPN',viewers:'1.9M',rating:'1.1',share:'3%',change:'+22%',up:true,pct:32},
+{program:'SportsCenter 6PM',network:'ESPN',viewers:'1.7M',rating:'0.9',share:'3%',change:'-3%',up:false,pct:28},
+{program:'First Take',network:'ESPN',viewers:'1.2M',rating:'0.7',share:'2%',change:'+5%',up:true,pct:22},
+{program:'MLS Season Opener',network:'ESPN+',viewers:'980K',rating:'0.5',share:'2%',change:'New',up:true,pct:16},
+{program:'Around the Horn',network:'ESPN',viewers:'620K',rating:'0.3',share:'1%',change:'-8%',up:false,pct:12}
+];
+document.getElementById('ratings').innerHTML=`
+<thead><tr><th>Program</th><th>Network</th><th>Viewers</th><th>Rating</th><th>Share</th><th>Viewership</th><th>Δ WoW</th></tr></thead>
+<tbody>${ratings.map(r=>`<tr>
+<td style="font-weight:600">${r.program}</td><td>${r.network}</td><td>${r.viewers}</td><td>${r.rating}</td><td>${r.share}</td>
+<td><div class="rating-bar"><div class="rating-fill" style="width:${r.pct}%"></div></div></td>
+<td class="${r.up?'change-up':'change-down'}">${r.change}</td>
+</tr>`).join('')}</tbody>`;
+
+// Power Rankings
+const teams=[
+{rank:1,name:'Cleveland Cavaliers',color:'#6f263d',record:'46-12',change:'—'},
+{rank:2,name:'Boston Celtics',color:'#007a33',record:'44-14',change:'↑1'},
+{rank:3,name:'Oklahoma City Thunder',color:'#007ac1',record:'43-15',change:'↓1'},
+{rank:4,name:'Denver Nuggets',color:'#0e2240',record:'38-20',change:'↑2'},
+{rank:5,name:'New York Knicks',color:'#006bb6',record:'37-22',change:'↑1'},
+{rank:6,name:'Milwaukee Bucks',color:'#00471b',record:'35-23',change:'↓2'},
+{rank:7,name:'Golden State Warriors',color:'#1d428a',record:'34-25',change:'—'},
+{rank:8,name:'Memphis Grizzlies',color:'#5d76a9',record:'34-25',change:'↑3'}
+];
+document.getElementById('power-rankings').innerHTML=teams.map(t=>`
+<div class="power-item">
+<span class="power-rank">${t.rank}</span>
+<span class="power-team"><span class="power-team-dot" style="background:${t.color}"></span>${t.name}</span>
+<span class="power-record">${t.record}</span>
+<span class="power-change ${t.change.includes('↑')?'change-up':t.change.includes('↓')?'change-down':''}">${t.change}</span>
+</div>`).join('');
+
+// Editorial
+const editorial=[
+{cat:'Business',title:'ESPN\'s $7.8B NBA Deal: The Biggest Bet in Sports Media History',byline:'Andrew Marchand • ESPN Business'},
+{cat:'Analysis',title:'How AI Is Transforming Sports Broadcasting — From Automated Highlights to Real-Time Analytics',byline:'Nicole Auerbach • ESPN Tech'},
+{cat:'Opinion',title:'The Case for Expanding the College Football Playoff to 16 Teams',byline:'Paul Finebaum • ESPN'},
+{cat:'Feature',title:'Inside the WNBA\'s Explosive Growth: From $60M to $750M Valuation in Two Years',byline:'Ramona Shelburne • ESPN'},
+{cat:'Longform',title:'The Last Days of Regional Sports Networks — And What Comes Next',byline:'John Ourand • ESPN+'},
+{cat:'Data',title:'ESPN BPI\'s Most Surprising Predictions for March Madness 2026',byline:'Kevin Pelton • ESPN Analytics'}
+];
+document.getElementById('editorial').innerHTML=editorial.map(e=>`
+<div class="editorial-item">
+<h3><span class="editorial-category">${e.cat}</span>${e.title}</h3>
+<div class="editorial-byline">${e.byline}</div>
+</div>`).join('');
+
+// ESPN+
+const espnPlus=[
+{title:'30 for 30: The Decision II',views:'2.4M'},
+{title:'UFC 312 Main Card',views:'1.8M'},
+{title:'Man in the Arena S2',views:'1.2M'},
+{title:'Detail with Peyton Manning',views:'890K'},
+{title:'E:60 — NIL\'s Broken Promise',views:'670K'}
+];
+document.getElementById('espn-plus').innerHTML=espnPlus.map((e,i)=>`
+<div class="stat-box">
+<div style="font-size:0.7rem;color:var(--accent);font-weight:700;margin-bottom:0.5rem">#${i+1}</div>
+<div style="font-size:0.85rem;font-weight:600;margin-bottom:0.25rem">${e.title}</div>
+<div style="font-size:0.8rem;color:var(--dim)">${e.views} views</div>
+</div>`).join('');
+</script>
+</body>
+</html>
