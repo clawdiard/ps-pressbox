@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PressBox — Broadcast Calendar</title>
+<meta name="description" content="Multi-sport broadcast scheduling calendar with sport filtering and network breakdown">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📺</text></svg>">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;
+--text:#e8e8f0;--dim:#8888a0;--accent:#c41e3a;--accent2:#ff4d6a;
+--gold:#d4a843;--green:#2ecc71;--blue:#3498db;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.header{background:linear-gradient(180deg,#0f0f18 0%,var(--bg) 100%);border-bottom:1px solid var(--border);padding:1.5rem 2rem;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px)}
+.header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem}
+.logo{display:flex;align-items:center;gap:0.75rem}
+.logo-icon{font-size:1.8rem}
+.logo h1{font-size:1.5rem;font-weight:700;letter-spacing:-0.02em}
+.logo h1 span{color:var(--accent)}
+.nav-links{display:flex;gap:1.5rem;align-items:center;font-size:0.9rem}
+.nav-links a{color:var(--dim);transition:color 0.2s}
+.nav-links a:hover,.nav-links a.active{color:var(--text);text-decoration:none}
+.nav-links a.active{border-bottom:2px solid var(--accent);padding-bottom:2px}
+
+.container{max-width:1400px;margin:0 auto;padding:1.5rem}
+
+/* Controls */
+.controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
+.controls-left{display:flex;align-items:center;gap:1rem}
+.controls-right{display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap}
+
+.btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0.5rem 1rem;border-radius:8px;cursor:pointer;font-size:0.85rem;transition:all 0.2s;font-family:inherit}
+.btn:hover{border-color:#4a4a60;background:var(--surface2)}
+.btn.active{background:var(--accent);border-color:var(--accent);color:white}
+.btn-nav{padding:0.5rem 0.75rem;font-size:1rem;line-height:1}
+.btn-today{background:var(--accent);border-color:var(--accent);color:white}
+.btn-today:hover{background:var(--accent2);border-color:var(--accent2)}
+
+.view-toggle{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.view-toggle .btn{border:none;border-radius:0;border-right:1px solid var(--border)}
+.view-toggle .btn:last-child{border-right:none}
+
+.month-title{font-size:1.5rem;font-weight:700;letter-spacing:-0.02em;min-width:220px}
+
+/* Sport filters */
+.sport-filters{display:flex;gap:0.5rem;flex-wrap:wrap}
+.sport-chip{display:flex;align-items:center;gap:0.35rem;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:0.35rem 0.75rem;cursor:pointer;font-size:0.8rem;transition:all 0.2s;user-select:none}
+.sport-chip:hover{border-color:#4a4a60}
+.sport-chip.active{border-color:var(--accent);background:rgba(196,30,58,0.15)}
+.sport-chip .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Network legend */
+.network-legend{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;font-size:0.75rem;color:var(--dim)}
+.network-legend span{display:flex;align-items:center;gap:0.35rem}
+.net-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Calendar grid — Monthly */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cal-header{background:var(--surface);padding:0.75rem;text-align:center;font-size:0.75rem;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em}
+.cal-day{background:var(--bg);min-height:120px;padding:0.5rem;position:relative;transition:background 0.2s}
+.cal-day:hover{background:var(--surface)}
+.cal-day.other-month{opacity:0.3}
+.cal-day.today{background:rgba(196,30,58,0.08)}
+.cal-day.today .day-num{background:var(--accent);color:white;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+.day-num{font-size:0.85rem;font-weight:600;margin-bottom:0.35rem;display:inline-block}
+.day-events{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.day-event{font-size:0.65rem;padding:2px 4px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.4;transition:opacity 0.2s}
+.day-event:hover{opacity:0.8}
+.day-more{font-size:0.65rem;color:var(--dim);cursor:pointer;padding-top:2px}
+.day-more:hover{color:var(--accent2)}
+
+/* Calendar — Weekly */
+.week-grid{display:grid;grid-template-columns:60px repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.week-header{background:var(--surface);padding:0.75rem 0.5rem;text-align:center;font-size:0.75rem;color:var(--dim)}
+.week-header.today-col{color:var(--accent2)}
+.week-header .wh-date{font-size:1.1rem;font-weight:700;color:var(--text);margin-top:0.2rem}
+.week-header.today-col .wh-date{color:var(--accent)}
+.week-time{background:var(--surface);padding:0.4rem;text-align:right;font-size:0.7rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.week-cell{background:var(--bg);padding:2px;min-height:50px;position:relative}
+.week-cell.today-col{background:rgba(196,30,58,0.04)}
+.week-event{font-size:0.65rem;padding:2px 4px;border-radius:3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.4}
+.week-event:hover{opacity:0.8}
+
+/* Tooltip */
+.tooltip{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem;font-size:0.8rem;z-index:1000;max-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.5);pointer-events:none;display:none}
+.tooltip .tt-sport{font-size:0.65rem;text-transform:uppercase;color:var(--accent);font-weight:600;letter-spacing:0.05em}
+.tooltip .tt-title{font-weight:600;margin:0.25rem 0}
+.tooltip .tt-meta{color:var(--dim);font-size:0.75rem}
+
+/* Stats bar */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem 1rem;text-align:center}
+.stat-val{font-size:1.4rem;font-weight:800}
+.stat-lbl{font-size:0.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.15rem}
+
+.footer{text-align:center;padding:2rem;color:var(--dim);font-size:0.8rem;border-top:1px solid var(--border);margin-top:2rem}
+
+@media(max-width:768px){
+  .cal-day{min-height:80px;padding:0.3rem}
+  .day-event{font-size:0.6rem}
+  .week-grid{grid-template-columns:40px repeat(7,1fr)}
+  .month-title{font-size:1.2rem;min-width:auto}
+  .controls{flex-direction:column;align-items:stretch}
+  .controls-left,.controls-right{justify-content:center}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+<div class="header-inner">
+<div class="logo">
+<span class="logo-icon">📺</span>
+<h1>Press<span>Box</span></h1>
+</div>
+<div class="nav-links">
+<a href="index.html">Dashboard</a>
+<a href="calendar.html" class="active">Calendar</a>
+</div>
+</div>
+</div>
+
+<div class="container">
+
+<!-- Stats -->
+<div class="stats-bar" id="stats-bar"></div>
+
+<!-- Controls -->
+<div class="controls">
+<div class="controls-left">
+<button class="btn btn-nav" id="prev-btn">◀</button>
+<button class="btn btn-today" id="today-btn">Today</button>
+<button class="btn btn-nav" id="next-btn">▶</button>
+<div class="month-title" id="month-title"></div>
+</div>
+<div class="controls-right">
+<div class="view-toggle">
+<button class="btn" data-view="week">Week</button>
+<button class="btn active" data-view="month">Month</button>
+</div>
+</div>
+</div>
+
+<!-- Sport filters -->
+<div class="sport-filters" id="sport-filters"></div>
+
+<!-- Network legend -->
+<div class="network-legend" id="network-legend" style="margin-top:0.75rem"></div>
+
+<!-- Calendar -->
+<div id="calendar"></div>
+
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip">
+<div class="tt-sport"></div>
+<div class="tt-title"></div>
+<div class="tt-meta"></div>
+</div>
+
+<div class="footer">
+<p>PressBox — Broadcast Calendar</p>
+<p style="margin-top:0.5rem">Live data from ESPN. Auto-refreshes every 3 minutes.</p>
+</div>
+
+<script>
+const ESPN='https://site.api.espn.com/apis/site/v2/sports';
+const SPORTS=[
+  {key:'basketball/nba',icon:'🏀',tag:'NBA',color:'#e87722'},
+  {key:'hockey/nhl',icon:'🏒',tag:'NHL',color:'#3498db'},
+  {key:'football/nfl',icon:'🏈',tag:'NFL',color:'#2ecc71'},
+  {key:'baseball/mlb',icon:'⚾',tag:'MLB',color:'#d4a843'},
+  {key:'soccer/usa.1',icon:'⚽',tag:'MLS',color:'#9b59b6'},
+  {key:'football/college-football',icon:'🏈',tag:'CFB',color:'#1abc9c'},
+  {key:'basketball/mens-college-basketball',icon:'🏀',tag:'CBB',color:'#e74c3c'}
+];
+const NETWORKS={
+  'ESPN':{color:'#c41e3a'},'ESPN2':{color:'#c41e3a'},'ESPNU':{color:'#c41e3a'},
+  'ESPN+':{color:'#ff4d6a'},'ABC':{color:'#f39c12'},'TNT':{color:'#3498db'},
+  'TBS':{color:'#2ecc71'},'FOX':{color:'#e74c3c'},'FS1':{color:'#e74c3c'},
+  'CBS':{color:'#9b59b6'},'NBC':{color:'#1abc9c'},'NBCSN':{color:'#1abc9c'},
+  'MLB Network':{color:'#d4a843'},'NHL Network':{color:'#3498db'},
+  'NBA TV':{color:'#e87722'},'BTN':{color:'#1d428a'},'SEC Network':{color:'#003087'},
+};
+function netColor(n){return NETWORKS[n]?.color||'#888'}
+
+let currentView='month';
+let currentDate=new Date();
+let activeSports=new Set(SPORTS.map(s=>s.tag));
+let allEvents=[];
+let eventCache={};
+
+function safe(fn,fb=''){try{return fn()}catch{return fb}}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function isSameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate()}
+function fmtTime(d){return d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+
+// Build sport filter chips
+function buildFilters(){
+  const el=document.getElementById('sport-filters');
+  el.innerHTML=SPORTS.map(s=>`<div class="sport-chip ${activeSports.has(s.tag)?'active':''}" data-sport="${s.tag}"><span class="dot" style="background:${s.color}"></span>${s.icon} ${s.tag}</div>`).join('');
+  el.querySelectorAll('.sport-chip').forEach(chip=>{
+    chip.onclick=()=>{
+      const t=chip.dataset.sport;
+      if(activeSports.has(t))activeSports.delete(t);else activeSports.add(t);
+      chip.classList.toggle('active');
+      render();
+    };
+  });
+}
+
+// Fetch events for a date range
+async function fetchEvents(start,end){
+  const key=dateKey(start)+'_'+dateKey(end);
+  if(eventCache[key])return eventCache[key];
+  const events=[];
+  const fetches=SPORTS.map(s=>{
+    const dates=`dates=${start.getFullYear()}${String(start.getMonth()+1).padStart(2,'0')}${String(start.getDate()).padStart(2,'0')}-${end.getFullYear()}${String(end.getMonth()+1).padStart(2,'0')}${String(end.getDate()).padStart(2,'0')}`;
+    return fetch(`${ESPN}/${s.key}/scoreboard?${dates}&limit=200`).then(r=>r.json()).then(d=>{
+      (d.events||[]).forEach(ev=>{
+        const c=ev.competitions?.[0];if(!c)return;
+        const dt=new Date(ev.date);
+        const t0=c.competitors?.[0],t1=c.competitors?.[1];
+        const title=safe(()=>t1.team.shortDisplayName+' @ '+t0.team.shortDisplayName,ev.shortName||'TBD');
+        const network=safe(()=>c.broadcasts[0].names[0],'');
+        const venue=safe(()=>c.venue.fullName,'');
+        const state=safe(()=>c.status.type.state,'pre');
+        const status=safe(()=>c.status.type.shortDetail,'');
+        events.push({date:dt,title,network,venue,sport:s.tag,sportIcon:s.icon,sportColor:s.color,state,status});
+      });
+    }).catch(()=>{});
+  });
+  await Promise.all(fetches);
+  events.sort((a,b)=>a.date-b.date);
+  eventCache[key]=events;
+  return events;
+}
+
+// Get range for current view
+function getRange(){
+  const d=new Date(currentDate);
+  if(currentView==='month'){
+    const first=new Date(d.getFullYear(),d.getMonth(),1);
+    const last=new Date(d.getFullYear(),d.getMonth()+1,0);
+    const start=new Date(first);start.setDate(start.getDate()-start.getDay());
+    const end=new Date(last);end.setDate(end.getDate()+(6-end.getDay()));
+    return{start,end,first,last};
+  }else{
+    const day=d.getDay();
+    const start=new Date(d);start.setDate(d.getDate()-day);start.setHours(0,0,0,0);
+    const end=new Date(start);end.setDate(start.getDate()+6);end.setHours(23,59,59);
+    return{start,end};
+  }
+}
+
+// Update title
+function updateTitle(){
+  const d=currentDate;
+  if(currentView==='month'){
+    document.getElementById('month-title').textContent=d.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  }else{
+    const{start,end}=getRange();
+    const fmt={month:'short',day:'numeric'};
+    document.getElementById('month-title').textContent=start.toLocaleDateString('en-US',fmt)+' – '+end.toLocaleDateString('en-US',{...fmt,year:'numeric'});
+  }
+}
+
+// Build network legend from visible events
+function buildNetworkLegend(events){
+  const nets=new Set();
+  events.filter(e=>activeSports.has(e.sport)).forEach(e=>{if(e.network)nets.add(e.network)});
+  const el=document.getElementById('network-legend');
+  el.innerHTML=[...nets].sort().map(n=>`<span><span class="net-dot" style="background:${netColor(n)}"></span>${n}</span>`).join('');
+}
+
+// Update stats bar
+function updateStats(events){
+  const filtered=events.filter(e=>activeSports.has(e.sport));
+  const sportCounts={};
+  const netCounts={};
+  filtered.forEach(e=>{
+    sportCounts[e.sport]=(sportCounts[e.sport]||0)+1;
+    if(e.network)netCounts[e.network]=(netCounts[e.network]||0)+1;
+  });
+  const topNet=Object.entries(netCounts).sort((a,b)=>b[1]-a[1])[0];
+  const uniqueDays=new Set(filtered.map(e=>dateKey(e.date))).size;
+  document.getElementById('stats-bar').innerHTML=[
+    {val:filtered.length,lbl:'Total Broadcasts'},
+    {val:Object.keys(sportCounts).length,lbl:'Sports Covered'},
+    {val:uniqueDays,lbl:'Broadcast Days'},
+    {val:topNet?topNet[0]:'—',lbl:'Top Network'}
+  ].map(s=>`<div class="stat-box"><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('');
+}
+
+// Tooltip
+const tooltip=document.getElementById('tooltip');
+function showTooltip(ev,e){
+  tooltip.querySelector('.tt-sport').textContent=e.sportIcon+' '+e.sport;
+  tooltip.querySelector('.tt-title').textContent=e.title;
+  tooltip.querySelector('.tt-meta').innerHTML=fmtTime(e.date)+(e.network?' · '+e.network:'')+(e.venue?'<br>'+e.venue:'')+(e.state!=='pre'?'<br>'+e.status:'');
+  tooltip.style.display='block';
+  const r=tooltip.getBoundingClientRect();
+  let x=ev.clientX+12,y=ev.clientY+12;
+  if(x+r.width>window.innerWidth)x=ev.clientX-r.width-12;
+  if(y+r.height>window.innerHeight)y=ev.clientY-r.height-12;
+  tooltip.style.left=x+'px';tooltip.style.top=y+'px';
+}
+function hideTooltip(){tooltip.style.display='none'}
+
+// Render month view
+function renderMonth(events){
+  const{start,end,first,last}=getRange();
+  const today=new Date();
+  const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let html='<div class="cal-grid">';
+  days.forEach(d=>{html+=`<div class="cal-header">${d}</div>`});
+
+  const cur=new Date(start);
+  while(cur<=end){
+    const isOther=cur.getMonth()!==first.getMonth();
+    const isToday=isSameDay(cur,today);
+    const dk=dateKey(cur);
+    const dayEvents=events.filter(e=>dateKey(e.date)===dk&&activeSports.has(e.sport));
+    html+=`<div class="cal-day${isOther?' other-month':''}${isToday?' today':''}">`;
+    html+=`<div class="day-num">${cur.getDate()}</div>`;
+    html+=`<div class="day-events">`;
+    const show=dayEvents.slice(0,4);
+    show.forEach((e,i)=>{
+      html+=`<div class="day-event" style="background:${e.sportColor}22;color:${e.sportColor};border-left:2px solid ${e.sportColor}" data-eidx="${events.indexOf(e)}">${fmtTime(e.date)} ${e.title}</div>`;
+    });
+    if(dayEvents.length>4){
+      html+=`<div class="day-more">+${dayEvents.length-4} more</div>`;
+    }
+    html+=`</div></div>`;
+    cur.setDate(cur.getDate()+1);
+  }
+  html+=`</div>`;
+  document.getElementById('calendar').innerHTML=html;
+
+  // Tooltip events
+  document.querySelectorAll('.day-event').forEach(el=>{
+    const e=events[parseInt(el.dataset.eidx)];
+    el.addEventListener('mouseenter',ev=>showTooltip(ev,e));
+    el.addEventListener('mousemove',ev=>showTooltip(ev,e));
+    el.addEventListener('mouseleave',hideTooltip);
+  });
+}
+
+// Render week view
+function renderWeek(events){
+  const{start,end}=getRange();
+  const today=new Date();
+  const hours=[];
+  for(let h=7;h<=23;h++)hours.push(h);
+
+  let html='<div class="week-grid">';
+  html+='<div class="cal-header"></div>';
+  for(let d=0;d<7;d++){
+    const day=new Date(start);day.setDate(start.getDate()+d);
+    const isToday=isSameDay(day,today);
+    html+=`<div class="week-header${isToday?' today-col':''}"><div>${day.toLocaleDateString('en-US',{weekday:'short'})}</div><div class="wh-date">${day.getDate()}</div></div>`;
+  }
+
+  hours.forEach(h=>{
+    const label=h>12?(h-12)+' PM':h===12?'12 PM':h+' AM';
+    html+=`<div class="week-time">${label}</div>`;
+    for(let d=0;d<7;d++){
+      const day=new Date(start);day.setDate(start.getDate()+d);
+      const isToday=isSameDay(day,today);
+      const dk=dateKey(day);
+      const hourEvents=events.filter(e=>dateKey(e.date)===dk&&e.date.getHours()===h&&activeSports.has(e.sport));
+      html+=`<div class="week-cell${isToday?' today-col':''}">`;
+      hourEvents.forEach(e=>{
+        html+=`<div class="week-event" style="background:${e.sportColor}22;color:${e.sportColor};border-left:2px solid ${e.sportColor}" data-eidx="${events.indexOf(e)}">${e.sportIcon} ${e.title}</div>`;
+      });
+      html+=`</div>`;
+    }
+  });
+  html+=`</div>`;
+  document.getElementById('calendar').innerHTML=html;
+
+  document.querySelectorAll('.week-event').forEach(el=>{
+    const e=events[parseInt(el.dataset.eidx)];
+    el.addEventListener('mouseenter',ev=>showTooltip(ev,e));
+    el.addEventListener('mousemove',ev=>showTooltip(ev,e));
+    el.addEventListener('mouseleave',hideTooltip);
+  });
+}
+
+async function render(){
+  const{start,end}=getRange();
+  updateTitle();
+  const events=await fetchEvents(start,end);
+  allEvents=events;
+  updateStats(events);
+  buildNetworkLegend(events);
+  if(currentView==='month')renderMonth(events);
+  else renderWeek(events);
+}
+
+// Navigation
+document.getElementById('prev-btn').onclick=()=>{
+  if(currentView==='month')currentDate.setMonth(currentDate.getMonth()-1);
+  else currentDate.setDate(currentDate.getDate()-7);
+  render();
+};
+document.getElementById('next-btn').onclick=()=>{
+  if(currentView==='month')currentDate.setMonth(currentDate.getMonth()+1);
+  else currentDate.setDate(currentDate.getDate()+7);
+  render();
+};
+document.getElementById('today-btn').onclick=()=>{
+  currentDate=new Date();render();
+};
+document.querySelectorAll('.view-toggle .btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.view-toggle .btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView=btn.dataset.view;
+    render();
+  };
+});
+
+buildFilters();
+render();
+setInterval(()=>{eventCache={};render()},180000);
+</script>
+</body>
+</html>
