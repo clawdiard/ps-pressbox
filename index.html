@@ -142,7 +142,7 @@ a:hover{text-decoration:underline}
 
 <!-- Broadcast Schedule -->
 <div class="card">
-<div class="card-header"><h2>📡 Broadcast Schedule</h2><span style="font-size:0.8rem;color:var(--dim)">Feb 24</span></div>
+<div class="card-header"><h2>📡 Broadcast Schedule</h2><span style="font-size:0.8rem;color:var(--dim)" id="broadcast-date">Today</span></div>
 <div class="card-body" id="broadcasts"></div>
 </div>
 
@@ -183,144 +183,164 @@ a:hover{text-decoration:underline}
 </div>
 
 <script>
+/* PressBox — Live ESPN API Integration
+   Fetches real-time data from ESPN public APIs (no key needed)
+   Auto-refreshes every 2 minutes */
+
+const ESPN='https://site.api.espn.com/apis/site/v2/sports';
+const SPORTS=[
+  {key:'basketball/nba',icon:'🏀',tag:'NBA'},
+  {key:'hockey/nhl',icon:'🏒',tag:'NHL'},
+  {key:'football/nfl',icon:'🏈',tag:'NFL'},
+  {key:'baseball/mlb',icon:'⚾',tag:'MLB'},
+  {key:'soccer/usa.1',icon:'⚽',tag:'MLS'},
+  {key:'football/college-football',icon:'🏈',tag:'CFB'},
+  {key:'basketball/mens-college-basketball',icon:'🏀',tag:'CBB'}
+];
+const NBA_COLORS={'Cleveland Cavaliers':'#6f263d','Boston Celtics':'#007a33','Oklahoma City Thunder':'#007ac1','Denver Nuggets':'#0e2240','New York Knicks':'#006bb6','Milwaukee Bucks':'#00471b','Golden State Warriors':'#1d428a','Memphis Grizzlies':'#5d76a9','Phoenix Suns':'#1d1160','Dallas Mavericks':'#00538c','Houston Rockets':'#ce1141','Minnesota Timberwolves':'#0c2340','Los Angeles Lakers':'#552583','Miami Heat':'#98002e','Philadelphia 76ers':'#006bb6','LA Clippers':'#c8102e','Sacramento Kings':'#5a2d81','Indiana Pacers':'#002d62','Orlando Magic':'#0077c0','Chicago Bulls':'#ce1141','Atlanta Hawks':'#e03a3e','San Antonio Spurs':'#c4ced4','Detroit Pistons':'#c8102e','Toronto Raptors':'#ce1141','Brooklyn Nets':'#000000','Portland Trail Blazers':'#e03a3e','Charlotte Hornets':'#1d1160','Utah Jazz':'#002B5C','New Orleans Pelicans':'#0C2340','Washington Wizards':'#002B5C'};
+
+function safe(fn,fb=''){try{return fn()}catch(e){return fb}}
+function timeAgo(iso){const ms=Date.now()-new Date(iso).getTime();const m=Math.floor(ms/60000);if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
+function fmtTime(iso){return new Date(iso).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}
+function loading(id){document.getElementById(id).innerHTML='<div style="text-align:center;padding:2rem;color:var(--dim)">Loading live data…</div>'}
+
 // Clock
 function updateClock(){const d=new Date();document.getElementById('clock').textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
 updateClock();setInterval(updateClock,60000);
 
-// Ticker
-const tickerItems=[
-'🏀 NBA: Celtics 112, Bucks 108 — Tatum 38pts','⚾ MLB Spring Training underway — pitchers & catchers report',
-'🏈 NFL Combine: Top QB prospects impress in drills','⚽ Champions League: Arsenal advances past PSG 3-1 agg.',
-'🏒 NHL: Rangers top Metro Division at trade deadline','🎾 ATP Dubai: Sinner cruises into QF',
-'🏀 NBA All-Star Weekend recap: record 211-186 score','🏈 2026 Draft: Top WR prospects tier breakdown',
-'📺 Super Bowl LX averages 127M viewers — new record','⚽ MLS Season Opener: Inter Miami draws 55K at Chase Stadium',
-'🏀 WNBA: Caitlin Clark named to All-Star roster early','🏒 NHL Trade Deadline: 42 players moved in 48 hours'
-];
-const ticker=document.getElementById('ticker');
-const html=tickerItems.map(t=>`<span class="ticker-item">${t}</span>`).join('');
-ticker.innerHTML=html+html;
+// Ticker: live scores
+async function loadTicker(){
+  const ticker=document.getElementById('ticker');const items=[];
+  await Promise.all(SPORTS.slice(0,5).map(s=>
+    fetch(ESPN+'/'+s.key+'/scoreboard').then(r=>r.json()).then(d=>{
+      (d.events||[]).slice(0,3).forEach(ev=>{
+        const c=ev.competitions?.[0];if(!c)return;
+        const ts=c.competitors||[];const t0=ts[0],t1=ts[1];if(!t0||!t1)return;
+        const n0=safe(()=>t0.team.abbreviation,'?'),n1=safe(()=>t1.team.abbreviation,'?');
+        items.push(s.icon+' '+n1+' '+t1.score+', '+n0+' '+t0.score+' — '+safe(()=>c.status.type.shortDetail,''));
+      });
+    }).catch(()=>{})
+  ));
+  if(!items.length)items.push('📺 PressBox — Live Sports Intelligence Dashboard');
+  const h=items.map(t=>'<span class="ticker-item">'+t+'</span>').join('');
+  ticker.innerHTML=h+h;
+}
 
 // Stats
-const stats=[
-{value:'127M',label:'Super Bowl LX Viewers',change:'+8% YoY',up:true},
-{value:'3.2M',label:'ESPN+ Subscribers (Feb)',change:'+340K MoM',up:true},
-{value:'$7.8B',label:'NBA Rights Deal (Annual)',change:'New Contract',up:true},
-{value:'94.7',label:'ESPN BPI Top Rating',change:'Cleveland',up:true}
-];
-document.getElementById('stats').innerHTML=stats.map(s=>`
-<div class="stat-box">
-<div class="stat-value">${s.value}</div>
-<div class="stat-label">${s.label}</div>
-<div class="stat-change ${s.up?'change-up':'change-down'}">${s.change}</div>
-</div>`).join('');
+async function loadStats(){
+  try{
+    const [nba,nhl]=await Promise.all([fetch(ESPN+'/basketball/nba/scoreboard').then(r=>r.json()),fetch(ESPN+'/hockey/nhl/scoreboard').then(r=>r.json())]);
+    const ng=(nba.events||[]).length,hg=(nhl.events||[]).length;
+    const nl=(nba.events||[]).filter(e=>safe(()=>e.competitions[0].status.type.state)==='in').length;
+    const hl=(nhl.events||[]).filter(e=>safe(()=>e.competitions[0].status.type.state)==='in').length;
+    const tl=nl+hl;
+    const stats=[
+      {value:ng,label:'NBA Games Today',change:nl?nl+' Live Now':'Scheduled',up:nl>0},
+      {value:hg,label:'NHL Games Today',change:hl?hl+' Live Now':'Scheduled',up:hl>0},
+      {value:tl,label:'Total Live Now',change:tl?'🔴 Broadcasting':'No Live Games',up:tl>0},
+      {value:ng+hg,label:'Total Events Today',change:'NBA + NHL',up:true}
+    ];
+    document.getElementById('stats').innerHTML=stats.map(s=>'<div class="stat-box"><div class="stat-value">'+s.value+'</div><div class="stat-label">'+s.label+'</div><div class="stat-change '+(s.up?'change-up':'change-down')+'">'+s.change+'</div></div>').join('');
+  }catch(e){document.getElementById('stats').innerHTML='<div class="stat-box" style="grid-column:1/-1"><div class="stat-label">Stats temporarily unavailable</div></div>';}
+}
 
-// Trending
-const trending=[
-{rank:1,title:'Super Bowl LX Shatters Viewership Record — What It Means for ESPN\'s NFL Rights',tags:['NFL','Business'],meta:'Stephen A. Smith • 2.1M views • 4h ago'},
-{rank:2,title:'NBA Trade Deadline Winners & Losers: Complete Breakdown',tags:['NBA','Analysis'],meta:'Zach Lowe • 1.8M views • 6h ago'},
-{rank:3,title:'Champions League Draw: What American Fans Need to Know',tags:['Soccer','UCL'],meta:'Taylor Twellman • 890K views • 3h ago'},
-{rank:4,title:'MLB Spring Training: 10 Breakout Candidates to Watch',tags:['MLB','Preview'],meta:'Jeff Passan • 670K views • 5h ago'},
-{rank:5,title:'NHL Trade Deadline: Inside the 48 Hours That Reshaped the League',tags:['NHL','Trades'],meta:'Emily Kaplan • 540K views • 2h ago'},
-{rank:6,title:'WNBA 2026 Preview: Clark, Reese, and the $75M Question',tags:['WNBA','Business'],meta:'Kevin Pelton • 430K views • 8h ago'}
-];
-document.getElementById('trending').innerHTML=trending.map(t=>`
-<div class="trending-item">
-<div class="trending-rank">${t.rank}</div>
-<div class="trending-content">
-<h3>${t.title}</h3>
-<div class="trending-meta">
-${t.tags.map(tag=>`<span class="trending-tag">${tag}</span>`).join('')}
-<span>${t.meta}</span>
-</div>
-</div>
-</div>`).join('');
+// Trending: live news
+async function loadTrending(){
+  loading('trending');
+  try{
+    const feeds=await Promise.all(SPORTS.slice(0,4).map(s=>
+      fetch(ESPN+'/'+s.key+'/news').then(r=>r.json()).then(d=>
+        (d.articles||[]).slice(0,3).map(a=>({title:a.headline,tags:[s.tag],meta:safe(()=>a.byline||'ESPN')+' • '+timeAgo(a.published),link:safe(()=>a.links.web.href,'#')}))
+      ).catch(()=>[])
+    ));
+    const arts=feeds.flat().slice(0,8);
+    document.getElementById('trending').innerHTML=arts.map((t,i)=>'<div class="trending-item"><div class="trending-rank">'+(i+1)+'</div><div class="trending-content"><h3><a href="'+t.link+'" target="_blank" rel="noopener">'+t.title+'</a></h3><div class="trending-meta">'+t.tags.map(tag=>'<span class="trending-tag">'+tag+'</span>').join('')+'<span>'+t.meta+'</span></div></div></div>').join('');
+  }catch(e){document.getElementById('trending').innerHTML='<div style="color:var(--dim);padding:1rem">Unable to load trending</div>';}
+}
 
-// Broadcasts
-const broadcasts=[
-{time:'LIVE',sport:'NBA',title:'Celtics vs. Cavaliers',channel:'ESPN',live:true},
-{time:'LIVE',sport:'NHL',title:'Rangers vs. Penguins',channel:'ESPN+',live:true},
-{time:'7:00 PM',sport:'CBB',title:'Duke vs. North Carolina',channel:'ESPN'},
-{time:'7:30 PM',sport:'NBA',title:'Lakers vs. Warriors',channel:'ABC'},
-{time:'8:00 PM',sport:'Soccer',title:'UCL: Man City vs. Real Madrid',channel:'ESPN+'},
-{time:'9:00 PM',sport:'CBB',title:'Kansas vs. Baylor',channel:'ESPN2'},
-{time:'10:00 PM',sport:'NBA',title:'Suns vs. Nuggets',channel:'ESPN'},
-{time:'10:30 PM',sport:'NHL',title:'Oilers vs. Kings',channel:'ESPN+'}
-];
-document.getElementById('broadcasts').innerHTML=broadcasts.map(b=>`
-<div class="broadcast-item">
-<span class="broadcast-time ${b.live?'broadcast-live':''}">${b.time}</span>
-<span class="broadcast-sport">${b.sport}</span>
-<span class="broadcast-title">${b.title}</span>
-<span class="broadcast-channel">${b.channel}</span>
-</div>`).join('');
+// Broadcasts: today's games
+async function loadBroadcasts(){
+  loading('broadcasts');
+  document.getElementById('broadcast-date').textContent=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  try{
+    const games=[];
+    await Promise.all(SPORTS.slice(0,5).map(s=>
+      fetch(ESPN+'/'+s.key+'/scoreboard').then(r=>r.json()).then(d=>{
+        (d.events||[]).forEach(ev=>{
+          const c=ev.competitions?.[0];if(!c)return;
+          const st=safe(()=>c.status.type.state,'pre');
+          const title=safe(()=>c.competitors[1].team.shortDisplayName+' vs. '+c.competitors[0].team.shortDisplayName,ev.shortName||'TBD');
+          const bc=safe(()=>c.broadcasts[0].names[0],s.tag);
+          const live=st==='in';
+          games.push({time:live?'LIVE':st==='post'?'FINAL':fmtTime(ev.date),sport:s.tag,title:title,channel:bc,live:live,date:new Date(ev.date)});
+        });
+      }).catch(()=>{})
+    ));
+    games.sort((a,b)=>(b.live?1:0)-(a.live?1:0)||a.date-b.date);
+    const d=games.slice(0,12);
+    document.getElementById('broadcasts').innerHTML=d.length?d.map(b=>'<div class="broadcast-item"><span class="broadcast-time '+(b.live?'broadcast-live':'')+'">'+b.time+'</span><span class="broadcast-sport">'+b.sport+'</span><span class="broadcast-title">'+b.title+'</span><span class="broadcast-channel">'+b.channel+'</span></div>').join(''):'<div style="color:var(--dim);padding:1rem">No games scheduled today</div>';
+  }catch(e){document.getElementById('broadcasts').innerHTML='<div style="color:var(--dim);padding:1rem">Unable to load schedule</div>';}
+}
 
-// Ratings
-const ratings=[
-{program:'Super Bowl LX Pregame',network:'ESPN/ABC',viewers:'48.2M',rating:'26.1',share:'52%',change:'+12%',up:true,pct:100},
-{program:'NBA Saturday Primetime',network:'ABC',viewers:'5.8M',rating:'3.2',share:'8%',change:'+18%',up:true,pct:55},
-{program:'College GameDay (Basketball)',network:'ESPN',viewers:'2.4M',rating:'1.4',share:'4%',change:'+7%',up:true,pct:38},
-{program:'NHL Wednesday Night',network:'ESPN',viewers:'1.9M',rating:'1.1',share:'3%',change:'+22%',up:true,pct:32},
-{program:'SportsCenter 6PM',network:'ESPN',viewers:'1.7M',rating:'0.9',share:'3%',change:'-3%',up:false,pct:28},
-{program:'First Take',network:'ESPN',viewers:'1.2M',rating:'0.7',share:'2%',change:'+5%',up:true,pct:22},
-{program:'MLS Season Opener',network:'ESPN+',viewers:'980K',rating:'0.5',share:'2%',change:'New',up:true,pct:16},
-{program:'Around the Horn',network:'ESPN',viewers:'620K',rating:'0.3',share:'1%',change:'-8%',up:false,pct:12}
-];
-document.getElementById('ratings').innerHTML=`
-<thead><tr><th>Program</th><th>Network</th><th>Viewers</th><th>Rating</th><th>Share</th><th>Viewership</th><th>Δ WoW</th></tr></thead>
-<tbody>${ratings.map(r=>`<tr>
-<td style="font-weight:600">${r.program}</td><td>${r.network}</td><td>${r.viewers}</td><td>${r.rating}</td><td>${r.share}</td>
-<td><div class="rating-bar"><div class="rating-fill" style="width:${r.pct}%"></div></div></td>
-<td class="${r.up?'change-up':'change-down'}">${r.change}</td>
-</tr>`).join('')}</tbody>`;
-
-// Power Rankings
-const teams=[
-{rank:1,name:'Cleveland Cavaliers',color:'#6f263d',record:'46-12',change:'—'},
-{rank:2,name:'Boston Celtics',color:'#007a33',record:'44-14',change:'↑1'},
-{rank:3,name:'Oklahoma City Thunder',color:'#007ac1',record:'43-15',change:'↓1'},
-{rank:4,name:'Denver Nuggets',color:'#0e2240',record:'38-20',change:'↑2'},
-{rank:5,name:'New York Knicks',color:'#006bb6',record:'37-22',change:'↑1'},
-{rank:6,name:'Milwaukee Bucks',color:'#00471b',record:'35-23',change:'↓2'},
-{rank:7,name:'Golden State Warriors',color:'#1d428a',record:'34-25',change:'—'},
-{rank:8,name:'Memphis Grizzlies',color:'#5d76a9',record:'34-25',change:'↑3'}
-];
-document.getElementById('power-rankings').innerHTML=teams.map(t=>`
-<div class="power-item">
-<span class="power-rank">${t.rank}</span>
-<span class="power-team"><span class="power-team-dot" style="background:${t.color}"></span>${t.name}</span>
-<span class="power-record">${t.record}</span>
-<span class="power-change ${t.change.includes('↑')?'change-up':t.change.includes('↓')?'change-down':''}">${t.change}</span>
-</div>`).join('');
+// NBA Standings
+async function loadStandings(){
+  loading('power-rankings');
+  try{
+    const d=await fetch(ESPN+'/basketball/nba/standings').then(r=>r.json());
+    const all=[];
+    (d.children||[]).forEach(conf=>{
+      (conf.standings?.entries||[]).forEach(entry=>{
+        const name=safe(()=>entry.team.displayName,'Unknown');
+        const s=entry.stats||[];
+        const w=s.find(x=>x.name==='wins')?.value||0,l=s.find(x=>x.name==='losses')?.value||0;
+        const pct=parseFloat(s.find(x=>x.name==='winPercent')?.value||0);
+        const streak=s.find(x=>x.name==='streak')?.displayValue||'—';
+        all.push({name,w,l,pct,streak,color:NBA_COLORS[name]||'#888'});
+      });
+    });
+    all.sort((a,b)=>b.pct-a.pct);
+    document.getElementById('power-rankings').innerHTML=all.slice(0,10).map((t,i)=>'<div class="power-item"><span class="power-rank">'+(i+1)+'</span><span class="power-team"><span class="power-team-dot" style="background:'+t.color+'"></span>'+t.name+'</span><span class="power-record">'+t.w+'-'+t.l+'</span><span class="power-change" style="color:var(--dim)">'+t.streak+'</span></div>').join('');
+  }catch(e){document.getElementById('power-rankings').innerHTML='<div style="color:var(--dim);padding:1rem">Unable to load standings</div>';}
+}
 
 // Editorial
-const editorial=[
-{cat:'Business',title:'ESPN\'s $7.8B NBA Deal: The Biggest Bet in Sports Media History',byline:'Andrew Marchand • ESPN Business'},
-{cat:'Analysis',title:'How AI Is Transforming Sports Broadcasting — From Automated Highlights to Real-Time Analytics',byline:'Nicole Auerbach • ESPN Tech'},
-{cat:'Opinion',title:'The Case for Expanding the College Football Playoff to 16 Teams',byline:'Paul Finebaum • ESPN'},
-{cat:'Feature',title:'Inside the WNBA\'s Explosive Growth: From $60M to $750M Valuation in Two Years',byline:'Ramona Shelburne • ESPN'},
-{cat:'Longform',title:'The Last Days of Regional Sports Networks — And What Comes Next',byline:'John Ourand • ESPN+'},
-{cat:'Data',title:'ESPN BPI\'s Most Surprising Predictions for March Madness 2026',byline:'Kevin Pelton • ESPN Analytics'}
-];
-document.getElementById('editorial').innerHTML=editorial.map(e=>`
-<div class="editorial-item">
-<h3><span class="editorial-category">${e.cat}</span>${e.title}</h3>
-<div class="editorial-byline">${e.byline}</div>
-</div>`).join('');
+async function loadEditorial(){
+  loading('editorial');
+  try{
+    const [nfl,nba]=await Promise.all([fetch(ESPN+'/football/nfl/news').then(r=>r.json()),fetch(ESPN+'/basketball/nba/news').then(r=>r.json()).catch(()=>({articles:[]}))]);
+    const all=[...(nfl.articles||[]).slice(0,3),...(nba.articles||[]).slice(0,3)];
+    const cats=['Analysis','Feature','Opinion','Business','Data','Longform'];
+    document.getElementById('editorial').innerHTML=all.map((a,i)=>'<div class="editorial-item"><h3><span class="editorial-category">'+cats[i%6]+'</span><a href="'+safe(()=>a.links.web.href,'#')+'" target="_blank" rel="noopener">'+a.headline+'</a></h3><div class="editorial-byline">'+safe(()=>a.byline||'ESPN Staff')+'</div></div>').join('');
+  }catch(e){document.getElementById('editorial').innerHTML='<div style="color:var(--dim);padding:1rem">Unable to load editorial</div>';}
+}
 
-// ESPN+
-const espnPlus=[
-{title:'30 for 30: The Decision II',views:'2.4M'},
-{title:'UFC 312 Main Card',views:'1.8M'},
-{title:'Man in the Arena S2',views:'1.2M'},
-{title:'Detail with Peyton Manning',views:'890K'},
-{title:'E:60 — NIL\'s Broken Promise',views:'670K'}
-];
-document.getElementById('espn-plus').innerHTML=espnPlus.map((e,i)=>`
-<div class="stat-box">
-<div style="font-size:0.7rem;color:var(--accent);font-weight:700;margin-bottom:0.5rem">#${i+1}</div>
-<div style="font-size:0.85rem;font-weight:600;margin-bottom:0.25rem">${e.title}</div>
-<div style="font-size:0.8rem;color:var(--dim)">${e.views} views</div>
-</div>`).join('');
+// Ratings: NBA game details
+async function loadRatings(){
+  try{
+    const d=await fetch(ESPN+'/basketball/nba/scoreboard').then(r=>r.json());
+    const g=(d.events||[]).slice(0,8);if(!g.length){document.getElementById('ratings').innerHTML='<tbody><tr><td colspan="5" style="text-align:center;color:var(--dim);padding:1rem">No games data</td></tr></tbody>';return;}
+    const mx=Math.max(...g.map(x=>safe(()=>x.competitions[0].attendance,0)||0),1);
+    document.getElementById('ratings').innerHTML='<thead><tr><th>Game</th><th>Venue</th><th>Status</th><th>Score</th><th>Attendance</th></tr></thead><tbody>'+g.map(x=>{
+      const c=x.competitions?.[0]||{};const t0=c.competitors?.[0],t1=c.competitors?.[1];
+      return '<tr><td style="font-weight:600">'+safe(()=>t1.team.shortDisplayName+' @ '+t0.team.shortDisplayName,x.shortName||'TBD')+'</td><td>'+safe(()=>c.venue.fullName,'TBD')+'</td><td>'+safe(()=>c.status.type.shortDetail,'')+'</td><td>'+safe(()=>t1.score+' - '+t0.score,'—')+'</td><td><div class="rating-bar"><div class="rating-fill" style="width:'+Math.round((safe(()=>c.attendance,0)||0)/mx*100)+'%"></div></div> '+safe(()=>c.attendance?.toLocaleString(),'—')+'</td></tr>';
+    }).join('')+'</tbody>';
+  }catch(e){document.getElementById('ratings').innerHTML='<tbody><tr><td style="color:var(--dim);padding:1rem">Unable to load</td></tr></tbody>';}
+}
+
+// Top Headlines
+async function loadEspnPlus(){
+  try{
+    const results=[];
+    await Promise.all(['basketball/nba','hockey/nhl','football/nfl','soccer/usa.1','basketball/mens-college-basketball'].map(f=>
+      fetch(ESPN+'/'+f+'/news').then(r=>r.json()).then(d=>{const a=(d.articles||[])[0];if(a)results.push({title:a.headline,meta:timeAgo(a.published)});}).catch(()=>{})
+    ));
+    document.getElementById('espn-plus').innerHTML=results.slice(0,5).map((e,i)=>'<div class="stat-box"><div style="font-size:0.7rem;color:var(--accent);font-weight:700;margin-bottom:0.5rem">#'+(i+1)+'</div><div style="font-size:0.85rem;font-weight:600;margin-bottom:0.25rem">'+e.title+'</div><div style="font-size:0.8rem;color:var(--dim)">'+e.meta+'</div></div>').join('')||'<div class="stat-box" style="grid-column:1/-1"><div class="stat-label">No highlights</div></div>';
+  }catch(e){document.getElementById('espn-plus').innerHTML='<div class="stat-box" style="grid-column:1/-1"><div class="stat-label">Unable to load</div></div>';}
+}
+
+// Init & auto-refresh
+async function refresh(){await Promise.all([loadTicker(),loadStats(),loadTrending(),loadBroadcasts(),loadRatings(),loadStandings(),loadEditorial(),loadEspnPlus()])}
+refresh();setInterval(refresh,120000);
 </script>
 </body>
 </html>
