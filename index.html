@@ -166,6 +166,18 @@ a:hover{text-decoration:underline}
 <div class="card-body" id="editorial"></div>
 </div>
 
+<!-- Historical Viewership Charts -->
+<div class="card card-full">
+<div class="card-header"><h2>📈 Historical Viewership Trends</h2><span style="font-size:0.8rem;color:var(--dim)">2020–2025 Seasons</span></div>
+<div class="card-body">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
+<div><canvas id="chart-primetime"></canvas></div>
+<div><canvas id="chart-events"></canvas></div>
+</div>
+<div style="margin-top:1.5rem"><canvas id="chart-platform" height="90"></canvas></div>
+</div>
+</div>
+
 <!-- ESPN+ Highlights -->
 <div class="card card-full">
 <div class="card-header"><h2>🎬 ESPN+ Most Watched This Week</h2></div>
@@ -341,6 +353,36 @@ async function loadEspnPlus(){
 // Init & auto-refresh
 async function refresh(){await Promise.all([loadTicker(),loadStats(),loadTrending(),loadBroadcasts(),loadRatings(),loadStandings(),loadEditorial(),loadEspnPlus()])}
 refresh();setInterval(refresh,120000);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+const seasons=['2020','2021','2022','2023','2024','2025'];
+const gridColor='rgba(255,255,255,0.06)';
+const tickColor='#8888a0';
+const baseOpts={responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:tickColor,font:{size:11}}},tooltip:{backgroundColor:'#1a1a26',borderColor:'#2a2a3a',borderWidth:1,titleColor:'#e8e8f0',bodyColor:'#e8e8f0'}},scales:{x:{ticks:{color:tickColor},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3)+'K':v},grid:{color:gridColor}}}};
+
+// Primetime viewership (millions)
+new Chart(document.getElementById('chart-primetime'),{type:'line',data:{labels:seasons,datasets:[
+{label:'Monday Night Football',data:[12800000,13200000,13100000,13800000,14900000,15200000],borderColor:'#c41e3a',backgroundColor:'rgba(196,30,58,0.1)',fill:true,tension:0.3},
+{label:'NBA Finals (avg)',data:[7500000,9900000,12400000,11600000,11800000,12100000],borderColor:'#3498db',backgroundColor:'rgba(52,152,219,0.1)',fill:true,tension:0.3},
+{label:'College GameDay',data:[1800000,1900000,2100000,2000000,2200000,2400000],borderColor:'#d4a843',backgroundColor:'rgba(212,168,67,0.1)',fill:true,tension:0.3}
+]},options:{...baseOpts,plugins:{...baseOpts.plugins,title:{display:true,text:'Primetime Program Viewership',color:'#e8e8f0',font:{size:14,weight:600}}}}});
+
+// Major events (millions)
+new Chart(document.getElementById('chart-events'),{type:'bar',data:{labels:seasons,datasets:[
+{label:'Super Bowl',data:[102000000,96400000,112300000,115100000,123700000,127000000],backgroundColor:'rgba(196,30,58,0.7)',borderColor:'#c41e3a',borderWidth:1},
+{label:'CFP Championship',data:[25600000,22200000,24200000,25100000,28400000,30200000],backgroundColor:'rgba(52,152,219,0.7)',borderColor:'#3498db',borderWidth:1},
+{label:'World Series (avg)',data:[9800000,11800000,12500000,9100000,15600000,14200000],backgroundColor:'rgba(212,168,67,0.7)',borderColor:'#d4a843',borderWidth:1}
+]},options:{...baseOpts,plugins:{...baseOpts.plugins,title:{display:true,text:'Major Event Viewership',color:'#e8e8f0',font:{size:14,weight:600}}}}});
+
+// Platform/streaming growth
+new Chart(document.getElementById('chart-platform'),{type:'line',data:{labels:['Q1 2023','Q2 2023','Q3 2023','Q4 2023','Q1 2024','Q2 2024','Q3 2024','Q4 2024','Q1 2025'],datasets:[
+{label:'ESPN+ Subscribers',data:[24800000,25300000,25900000,26200000,26800000,24900000,25500000,26100000,26700000],borderColor:'#c41e3a',backgroundColor:'rgba(196,30,58,0.08)',fill:true,tension:0.3},
+{label:'ESPN App DAU',data:[8200000,8900000,10500000,11200000,11800000,12400000,13100000,14600000,15200000],borderColor:'#2ecc71',backgroundColor:'rgba(46,204,113,0.08)',fill:true,tension:0.3},
+{label:'ESPN.com Unique Visitors',data:[88000000,92000000,105000000,98000000,91000000,95000000,108000000,102000000,96000000],borderColor:'#d4a843',backgroundColor:'rgba(212,168,67,0.08)',fill:true,tension:0.3,yAxisID:'y1'}
+]},options:{...baseOpts,plugins:{...baseOpts.plugins,title:{display:true,text:'Digital Platform Growth',color:'#e8e8f0',font:{size:14,weight:600}}},scales:{...baseOpts.scales,y1:{position:'right',ticks:{color:tickColor,callback:v=>(v/1e6).toFixed(0)+'M'},grid:{drawOnChartArea:false}}}}});
+})();
 </script>
 </body>
 </html>
